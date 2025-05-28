@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { Petition, ProposedOutcome, User } from '@/lib/types';
-import { mockPetitions } from '@/lib/mock-data'; // Using mock data
+import { mockPetitions } from '@/lib/mock-data'; // Using mock data (will be empty)
 import { useAuth } from '@/providers/auth-provider';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -36,14 +36,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
 
-const chartData = [ // Mock data for signatures per hour
-  { time: "10:00", signatures: Math.floor(Math.random() * 20) + 5 },
-  { time: "11:00", signatures: Math.floor(Math.random() * 20) + 10 },
-  { time: "12:00", signatures: Math.floor(Math.random() * 30) + 15 },
-  { time: "13:00", signatures: Math.floor(Math.random() * 25) + 10 },
-  { time: "14:00", signatures: Math.floor(Math.random() * 20) + 5 },
-  { time: "15:00", signatures: Math.floor(Math.random() * 15) + 8 },
-];
+const chartData: any[] = []; // Emptied mock chart data
 
 const chartConfig = {
   signatures: {
@@ -53,10 +46,7 @@ const chartConfig = {
 } satisfies ChartConfig
 
 // Mock proposed outcomes
-const mockOutcomes: ProposedOutcome[] = [
-    { id: 'o1', petitionId: 'p1', description: "Implement a 5-year moratorium on development in adjacent forest areas.", proposedByUserId: 'user2', proposedByUserName: 'Bob The Builder', votesFor: 150, votesAgainst: 20, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString() },
-    { id: 'o2', petitionId: 'p1', description: "Allocate 1% of city budget to forest maintenance and ranger programs.", proposedByUserId: 'user1', proposedByUserName: 'Alice Wonderland', votesFor: 90, votesAgainst: 45, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString() },
-];
+const mockOutcomes: ProposedOutcome[] = []; // Emptied mock outcomes
 
 
 export default function PetitionDetailPage() {
@@ -65,22 +55,20 @@ export default function PetitionDetailPage() {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const [petition, setPetition] = useState<Petition | null>(null);
-  const [outcomes, setOutcomes] = useState<ProposedOutcome[]>(mockOutcomes.filter(o => o.petitionId === params.id)); // Filter for current petition
+  const [outcomes, setOutcomes] = useState<ProposedOutcome[]>(mockOutcomes.filter(o => o.petitionId === params.id));
   const [newOutcomeDescription, setNewOutcomeDescription] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [isProposing, setIsProposing] = useState(false);
-  const [hasSigned, setHasSigned] = useState(false); // Mock state
+  const [hasSigned, setHasSigned] = useState(false); 
 
   useEffect(() => {
     const foundPetition = mockPetitions.find(p => p.id === params.id);
     if (foundPetition) {
       setPetition(foundPetition);
-      // Mock if user has signed this petition (check local storage or similar)
       const signedStatus = localStorage.getItem(`signed_${foundPetition.id}_${user?.id}`);
       setHasSigned(!!signedStatus);
     } else {
-      // Handle petition not found, e.g., redirect or show error
-      toast({ title: "Petition not found", variant: "destructive" });
+      toast({ title: "Petition not found", description: "This petition may have been removed or does not exist.", variant: "destructive" });
       router.push('/dashboard');
     }
   }, [params.id, user, router, toast]);
@@ -95,7 +83,6 @@ export default function PetitionDetailPage() {
       return;
     }
     setIsSigning(true);
-    // Simulate signing process
     await new Promise(resolve => setTimeout(resolve, 1500));
     setPetition(prev => prev ? { ...prev, signatures: prev.signatures + 1 } : null);
     setHasSigned(true);
@@ -125,7 +112,6 @@ export default function PetitionDetailPage() {
       votesAgainst: 0,
       createdAt: new Date().toISOString(),
     };
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     setOutcomes(prev => [...prev, newOutcome]);
     setNewOutcomeDescription('');
@@ -138,7 +124,6 @@ export default function PetitionDetailPage() {
        toast({ title: "Please log in to vote.", variant: "destructive" });
        return;
     }
-    // Mock voting: check if user already voted on this outcome
     const voteKey = `voted_${outcomeId}_${user.id}`;
     if (localStorage.getItem(voteKey)) {
         toast({ title: "Already Voted", description: "You have already voted on this outcome.", variant: "default" });
@@ -151,7 +136,7 @@ export default function PetitionDetailPage() {
         }
         return o;
     }));
-    localStorage.setItem(voteKey, voteType); // Mark as voted
+    localStorage.setItem(voteKey, voteType); 
     toast({ title: "Vote Cast!", description: `You voted ${voteType} the outcome.` });
   };
 
@@ -207,7 +192,6 @@ export default function PetitionDetailPage() {
             </CardFooter>
           </Card>
 
-          {/* Proposed Outcomes & Voting Section */}
           { (petition.status === 'Voting' || petition.status === 'Live' || outcomes.length > 0) && (
             <Card className="shadow-lg">
                 <CardHeader>
@@ -253,7 +237,7 @@ export default function PetitionDetailPage() {
                     ))}
                     {outcomes.length === 0 && <p className="text-muted-foreground">No outcomes proposed yet.</p>}
                 </CardContent>
-                { (petition.status === 'Live' || petition.status === 'Voting') && isCreator && ( // Only creator can propose if live or voting
+                { (petition.status === 'Live' || petition.status === 'Voting') && isCreator && ( 
                     <CardFooter className="border-t pt-6">
                         <form onSubmit={handleProposeOutcome} className="w-full space-y-3">
                             <Label htmlFor="new-outcome" className="font-semibold">Propose a New Outcome</Label>
@@ -291,20 +275,24 @@ export default function PetitionDetailPage() {
                 <p><strong>Created:</strong> {format(new Date(petition.createdAt), "MMMM d, yyyy")}</p>
                 <p><strong>Last Updated:</strong> {format(new Date(petition.updatedAt), "MMMM d, yyyy")}</p>
               </div>
-              <Separator className="my-4" />
-              <h4 className="font-semibold mb-2 text-muted-foreground">Signatures per Hour (Mock Data)</h4>
-              <ChartContainer config={chartConfig} className="aspect-video h-[200px] w-full">
-                <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="signatures" fill="var(--color-signatures)" radius={4} />
-                </BarChart>
-              </ChartContainer>
+              {chartData.length > 0 && (
+                <>
+                  <Separator className="my-4" />
+                  <h4 className="font-semibold mb-2 text-muted-foreground">Signatures per Hour</h4>
+                  <ChartContainer config={chartConfig} className="aspect-video h-[200px] w-full">
+                    <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="signatures" fill="var(--color-signatures)" radius={4} />
+                    </BarChart>
+                  </ChartContainer>
+                </>
+              )}
                <Separator className="my-4" />
-               <h4 className="font-semibold mb-2 text-muted-foreground">Geographic Breakdown (Mock)</h4>
-               {petition.geoBreakdown ? (
+               <h4 className="font-semibold mb-2 text-muted-foreground">Geographic Breakdown</h4>
+               {petition.geoBreakdown && Object.keys(petition.geoBreakdown).length > 0 ? (
                 <ul className="text-sm space-y-1">
                     {Object.entries(petition.geoBreakdown).map(([loc, count]) => (
                         <li key={loc} className="flex justify-between"><span>{loc}:</span> <span>{count.toLocaleString()}</span></li>
