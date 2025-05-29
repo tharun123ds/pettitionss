@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { Petition, ProposedOutcome, User } from '@/lib/types';
-import { mockPetitions } from '@/lib/mock-data'; // Using mock data (will be empty)
+import type { Petition, ProposedOutcome } from '@/lib/types';
+// import { mockPetitions } from '@/lib/mock-data'; // No longer used for petition data
 import { useAuth } from '@/providers/auth-provider';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts" // Removed ResponsiveContainer as it wasn't used for BarChart
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -33,10 +34,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+// import { Input } from '@/components/ui/input'; // Input was not used
 
-
-const chartData: any[] = []; // Emptied mock chart data
+const chartData: any[] = []; 
 
 const chartConfig = {
   signatures: {
@@ -45,9 +45,9 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-// Mock proposed outcomes
-const mockOutcomes: ProposedOutcome[] = []; // Emptied mock outcomes
+const mockOutcomes: ProposedOutcome[] = []; // Proposed outcomes remain ephemeral for now
 
+const PETITIONS_STORAGE_KEY = 'decentralizeit-petitions';
 
 export default function PetitionDetailPage() {
   const params = useParams();
@@ -55,22 +55,49 @@ export default function PetitionDetailPage() {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const [petition, setPetition] = useState<Petition | null>(null);
-  const [outcomes, setOutcomes] = useState<ProposedOutcome[]>(mockOutcomes.filter(o => o.petitionId === params.id));
+  const [outcomes, setOutcomes] = useState<ProposedOutcome[]>([]); // Initialize empty
   const [newOutcomeDescription, setNewOutcomeDescription] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [isProposing, setIsProposing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false); 
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const foundPetition = mockPetitions.find(p => p.id === params.id);
+    setIsLoading(true);
+    const petitionId = params.id as string;
+    if (!petitionId) {
+        toast({ title: "Error", description: "Petition ID missing.", variant: "destructive" });
+        router.push('/dashboard');
+        setIsLoading(false);
+        return;
+    }
+
+    const storedPetitionsJSON = localStorage.getItem(PETITIONS_STORAGE_KEY);
+    let foundPetition: Petition | undefined = undefined;
+    if (storedPetitionsJSON) {
+      try {
+        const allPetitions: Petition[] = JSON.parse(storedPetitionsJSON);
+        if (Array.isArray(allPetitions)) {
+          foundPetition = allPetitions.find(p => p.id === petitionId);
+        }
+      } catch (e) {
+        console.error("Failed to parse petitions from localStorage", e);
+      }
+    }
+
     if (foundPetition) {
       setPetition(foundPetition);
-      const signedStatus = localStorage.getItem(`signed_${foundPetition.id}_${user?.id}`);
-      setHasSigned(!!signedStatus);
+      // Filter mockOutcomes for this petition (they are still mock, not from local storage for now)
+      setOutcomes(mockOutcomes.filter(o => o.petitionId === petitionId));
+      if (user) {
+        const signedStatus = localStorage.getItem(`signed_${foundPetition.id}_${user.id}`);
+        setHasSigned(!!signedStatus);
+      }
     } else {
       toast({ title: "Petition not found", description: "This petition may have been removed or does not exist.", variant: "destructive" });
       router.push('/dashboard');
     }
+    setIsLoading(false);
   }, [params.id, user, router, toast]);
 
   const handleSignPetition = async () => {
@@ -83,8 +110,27 @@ export default function PetitionDetailPage() {
       return;
     }
     setIsSigning(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setPetition(prev => prev ? { ...prev, signatures: prev.signatures + 1 } : null);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500)); 
+
+    // Update petition in local state and localStorage
+    setPetition(prev => {
+        if (!prev) return null;
+        const updatedPetition = { ...prev, signatures: prev.signatures + 1 };
+        
+        const storedPetitionsJSON = localStorage.getItem(PETITIONS_STORAGE_KEY);
+        if (storedPetitionsJSON) {
+            try {
+                let allPetitions: Petition[] = JSON.parse(storedPetitionsJSON);
+                allPetitions = allPetitions.map(p => p.id === updatedPetition.id ? updatedPetition : p);
+                localStorage.setItem(PETITIONS_STORAGE_KEY, JSON.stringify(allPetitions));
+            } catch (e) {
+                console.error("Error updating petition signatures in localStorage", e);
+            }
+        }
+        return updatedPetition;
+    });
+
     setHasSigned(true);
     localStorage.setItem(`signed_${petition.id}_${user.id}`, 'true');
     toast({ title: "Petition Signed!", description: "Thank you for your support." });
@@ -112,7 +158,9 @@ export default function PetitionDetailPage() {
       votesAgainst: 0,
       createdAt: new Date().toISOString(),
     };
+    // Simulate API Call
     await new Promise(resolve => setTimeout(resolve, 1000));
+    // Note: This only updates local component state. For persistence, this would need to be saved.
     setOutcomes(prev => [...prev, newOutcome]);
     setNewOutcomeDescription('');
     toast({ title: "Outcome Proposed!", description: "Your proposed outcome has been added." });
@@ -130,6 +178,7 @@ export default function PetitionDetailPage() {
         return;
     }
 
+    // Note: This only updates local component state. For persistence, this would need to be saved.
     setOutcomes(prevOutcomes => prevOutcomes.map(o => {
         if (o.id === outcomeId) {
             return { ...o, votesFor: o.votesFor + (voteType === 'for' ? 1 : 0), votesAgainst: o.votesAgainst + (voteType === 'against' ? 1 : 0) };
@@ -141,7 +190,7 @@ export default function PetitionDetailPage() {
   };
 
 
-  if (!petition) {
+  if (isLoading || !petition) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
   
@@ -217,7 +266,7 @@ export default function PetitionDetailPage() {
                                             <ThumbsDown className="h-4 w-4 mr-1.5 text-red-500" /> Against ({outcome.votesAgainst})
                                         </Button>
                                     </div>
-                                    {isCreator && user?.id === outcome.proposedByUserId && petition.status !== 'Voting' && (
+                                    {isCreator && user?.id === outcome.proposedByUserId && petition.status !== 'Voting' && ( // Only allow delete if not in Voting status
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
@@ -237,7 +286,7 @@ export default function PetitionDetailPage() {
                     ))}
                     {outcomes.length === 0 && <p className="text-muted-foreground">No outcomes proposed yet.</p>}
                 </CardContent>
-                { (petition.status === 'Live' || petition.status === 'Voting') && isCreator && ( 
+                { (petition.status === 'Live' || petition.status === 'Voting') && ( // Allow proposing if Live or Voting (creator or any authenticated user can propose)
                     <CardFooter className="border-t pt-6">
                         <form onSubmit={handleProposeOutcome} className="w-full space-y-3">
                             <Label htmlFor="new-outcome" className="font-semibold">Propose a New Outcome</Label>
@@ -247,10 +296,11 @@ export default function PetitionDetailPage() {
                                 value={newOutcomeDescription}
                                 onChange={(e) => setNewOutcomeDescription(e.target.value)}
                                 rows={3}
+                                disabled={!isAuthenticated} // Disable if not logged in
                             />
-                            <Button type="submit" disabled={isProposing} className="w-full sm:w-auto">
+                            <Button type="submit" disabled={isProposing || !isAuthenticated} className="w-full sm:w-auto">
                                 {isProposing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Propose Outcome
+                                {isAuthenticated ? "Propose Outcome" : "Login to Propose"}
                             </Button>
                         </form>
                     </CardFooter>
@@ -320,13 +370,24 @@ export default function PetitionDetailPage() {
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This action cannot be undone. This will permanently delete the petition
-                        and all related data.
+                        and all related data from your browser's local storage.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={() => {
-                          toast({ title: "Petition Deletion (Simulated)", description: "This petition would be deleted."});
+                          // Delete from localStorage
+                          const storedPetitionsJSON = localStorage.getItem(PETITIONS_STORAGE_KEY);
+                          if (storedPetitionsJSON) {
+                            try {
+                              let allPetitions: Petition[] = JSON.parse(storedPetitionsJSON);
+                              allPetitions = allPetitions.filter(p => p.id !== petition.id);
+                              localStorage.setItem(PETITIONS_STORAGE_KEY, JSON.stringify(allPetitions));
+                            } catch (e) {
+                              console.error("Error deleting petition from localStorage", e);
+                            }
+                          }
+                          toast({ title: "Petition Deleted", description: "The petition has been removed from local storage."});
                           router.push('/dashboard');
                         }}
                       >
@@ -343,3 +404,5 @@ export default function PetitionDetailPage() {
     </div>
   );
 }
+
+    

@@ -1,12 +1,13 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import type { Petition } from '@/lib/types';
-import { mockPetitions } from '@/lib/mock-data'; // Using mock data
+// import { mockPetitions } from '@/lib/mock-data'; // No longer primary source
 import { PetitionCard } from '@/components/petitions/petition-card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PlusCircle, ListFilter, Search } from 'lucide-react';
+import { PlusCircle, ListFilter, Search, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -18,21 +19,38 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
+const PETITIONS_STORAGE_KEY = 'decentralizeit-petitions';
+
 export default function DashboardPage() {
   const [petitions, setPetitions] = useState<Petition[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("all");
 
-
-  // Simulate fetching data
   useEffect(() => {
-    setPetitions(mockPetitions);
+    setIsLoading(true);
+    const storedPetitionsJSON = localStorage.getItem(PETITIONS_STORAGE_KEY);
+    let loadedPetitions: Petition[] = [];
+    if (storedPetitionsJSON) {
+      try {
+        const parsed = JSON.parse(storedPetitionsJSON);
+        if (Array.isArray(parsed)) {
+          loadedPetitions = parsed;
+        } else {
+          console.warn("Petitions from localStorage was not an array.");
+        }
+      } catch (e) {
+        console.error("Failed to parse petitions from localStorage", e);
+      }
+    }
+    setPetitions(loadedPetitions);
+    setIsLoading(false);
   }, []);
 
-  const uniqueCategories = Array.from(new Set(mockPetitions.map(p => p.category)));
-  const uniqueStatuses = Array.from(new Set(mockPetitions.map(p => p.status)));
+  const uniqueCategories = Array.from(new Set(petitions.map(p => p.category)));
+  const uniqueStatuses = Array.from(new Set(petitions.map(p => p.status)));
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategories(prev => {
@@ -62,9 +80,19 @@ export default function DashboardPage() {
     if (activeTab === "live") matchesTab = petition.status === "Live";
     else if (activeTab === "voting") matchesTab = petition.status === "Voting";
     else if (activeTab === "archived") matchesTab = petition.status === "Archived" || petition.status === "Closed";
+    else if (activeTab === "draft") matchesTab = petition.status === "Draft";
+
 
     return matchesSearch && matchesCategory && matchesStatus && matchesTab;
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[calc(100vh-theme(spacing.16))] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-2">
@@ -97,14 +125,14 @@ export default function DashboardPage() {
             <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Category</label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
+                <Button variant="outline" className="w-full justify-between" disabled={uniqueCategories.length === 0}>
                   <span>{selectedCategories.size > 0 ? `${selectedCategories.size} Selected` : "All Categories"}</span> <ListFilter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56">
                 <DropdownMenuLabel>Categories</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {uniqueCategories.map(category => (
+                {uniqueCategories.length > 0 ? uniqueCategories.map(category => (
                   <DropdownMenuCheckboxItem
                     key={category}
                     checked={selectedCategories.has(category)}
@@ -113,7 +141,7 @@ export default function DashboardPage() {
                   >
                     {category}
                   </DropdownMenuCheckboxItem>
-                ))}
+                )) : <DropdownMenuLabel className="text-xs text-muted-foreground px-2">No categories found</DropdownMenuLabel>}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -121,14 +149,14 @@ export default function DashboardPage() {
             <label className="block text-sm font-medium text-muted-foreground mb-1">Filter by Status</label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full justify-between">
+                <Button variant="outline" className="w-full justify-between" disabled={uniqueStatuses.length === 0}>
                  <span>{selectedStatuses.size > 0 ? `${selectedStatuses.size} Selected` : "All Statuses"}</span> <ListFilter className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56">
                 <DropdownMenuLabel>Statuses</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {uniqueStatuses.map(status => (
+                {uniqueStatuses.length > 0 ? uniqueStatuses.map(status => (
                   <DropdownMenuCheckboxItem
                     key={status}
                     checked={selectedStatuses.has(status)}
@@ -137,7 +165,7 @@ export default function DashboardPage() {
                   >
                     {status}
                   </DropdownMenuCheckboxItem>
-                ))}
+                )) : <DropdownMenuLabel className="text-xs text-muted-foreground px-2">No statuses found</DropdownMenuLabel>}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -145,8 +173,9 @@ export default function DashboardPage() {
       </div>
       
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-          <TabsTrigger value="all">All Petitions</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5">
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="draft">Drafts</TabsTrigger>
           <TabsTrigger value="live">Live</TabsTrigger>
           <TabsTrigger value="voting">Voting</TabsTrigger>
           <TabsTrigger value="archived">Archived/Closed</TabsTrigger>
@@ -162,7 +191,9 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <p className="text-xl text-muted-foreground">No petitions found matching your criteria.</p>
+          <p className="text-xl text-muted-foreground">
+            {petitions.length === 0 ? "No petitions created yet. Start by creating one!" : "No petitions found matching your criteria."}
+          </p>
           {(searchTerm || selectedCategories.size > 0 || selectedStatuses.size > 0) && (
             <Button variant="link" onClick={() => {
               setSearchTerm('');
@@ -176,3 +207,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
