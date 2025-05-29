@@ -4,14 +4,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { Petition, ProposedOutcome } from '@/lib/types';
-// import { mockPetitions } from '@/lib/mock-data'; // No longer used for petition data
 import { useAuth } from '@/providers/auth-provider';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { PetitionStatusBadge } from '@/components/petitions/petition-status-badge';
-import { BarChartBig, CalendarDays, Edit, MessageSquare, PenLine, Tag, ThumbsDown, ThumbsUp, Trash2, User as UserIcon, Users, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { BarChartBig, CalendarDays, Edit, MessageSquare, PenLine, Tag, ThumbsDown, ThumbsUp, Trash2, User as UserIcon, Users, CheckCircle, XCircle, Loader2, FileSignature, Hash } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -20,7 +19,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts" // Removed ResponsiveContainer as it wasn't used for BarChart
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -34,7 +33,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Label } from '@/components/ui/label';
-// import { Input } from '@/components/ui/input'; // Input was not used
 
 const chartData: any[] = []; 
 
@@ -45,7 +43,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-const mockOutcomes: ProposedOutcome[] = []; // Proposed outcomes remain ephemeral for now
+const mockOutcomes: ProposedOutcome[] = [];
 
 const PETITIONS_STORAGE_KEY = 'decentralizeit-petitions';
 
@@ -55,12 +53,13 @@ export default function PetitionDetailPage() {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const [petition, setPetition] = useState<Petition | null>(null);
-  const [outcomes, setOutcomes] = useState<ProposedOutcome[]>([]); // Initialize empty
+  const [outcomes, setOutcomes] = useState<ProposedOutcome[]>([]);
   const [newOutcomeDescription, setNewOutcomeDescription] = useState('');
   const [isSigning, setIsSigning] = useState(false);
   const [isProposing, setIsProposing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false); 
   const [isLoading, setIsLoading] = useState(true);
+  const [mockTxId, setMockTxId] = useState<string | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -87,11 +86,14 @@ export default function PetitionDetailPage() {
 
     if (foundPetition) {
       setPetition(foundPetition);
-      // Filter mockOutcomes for this petition (they are still mock, not from local storage for now)
-      setOutcomes(mockOutcomes.filter(o => o.petitionId === petitionId));
+      setOutcomes(mockOutcomes.filter(o => o.petitionId === petitionId)); // Keep outcomes ephemeral for now
       if (user) {
         const signedStatus = localStorage.getItem(`signed_${foundPetition.id}_${user.id}`);
-        setHasSigned(!!signedStatus);
+        if (signedStatus) {
+            setHasSigned(true);
+            const storedTxId = localStorage.getItem(`tx_${foundPetition.id}_${user.id}`);
+            if(storedTxId) setMockTxId(storedTxId);
+        }
       }
     } else {
       toast({ title: "Petition not found", description: "This petition may have been removed or does not exist.", variant: "destructive" });
@@ -106,14 +108,12 @@ export default function PetitionDetailPage() {
       return;
     }
     if (hasSigned) {
-      toast({ title: "Already Signed", description: "You have already signed this petition.", variant: "default" });
+      toast({ title: "Already Signed", description: "Your signature is already recorded for this petition.", variant: "default" });
       return;
     }
     setIsSigning(true);
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500)); 
 
-    // Update petition in local state and localStorage
     setPetition(prev => {
         if (!prev) return null;
         const updatedPetition = { ...prev, signatures: prev.signatures + 1 };
@@ -131,9 +131,15 @@ export default function PetitionDetailPage() {
         return updatedPetition;
     });
 
+    const newMockTxId = `tx_${Date.now().toString(16)}`;
     setHasSigned(true);
+    setMockTxId(newMockTxId);
     localStorage.setItem(`signed_${petition.id}_${user.id}`, 'true');
-    toast({ title: "Petition Signed!", description: "Thank you for your support." });
+    localStorage.setItem(`tx_${petition.id}_${user.id}`, newMockTxId);
+    toast({ 
+        title: "Signature Recorded!", 
+        description: `Your support is now part of this petition's immutable record. (Mock Tx ID: ${newMockTxId})` 
+    });
     setIsSigning(false);
   };
 
@@ -158,12 +164,10 @@ export default function PetitionDetailPage() {
       votesAgainst: 0,
       createdAt: new Date().toISOString(),
     };
-    // Simulate API Call
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // Note: This only updates local component state. For persistence, this would need to be saved.
     setOutcomes(prev => [...prev, newOutcome]);
     setNewOutcomeDescription('');
-    toast({ title: "Outcome Proposed!", description: "Your proposed outcome has been added." });
+    toast({ title: "Outcome Proposed to Ledger!", description: "Your proposed outcome has been submitted for community review." });
     setIsProposing(false);
   };
   
@@ -174,19 +178,19 @@ export default function PetitionDetailPage() {
     }
     const voteKey = `voted_${outcomeId}_${user.id}`;
     if (localStorage.getItem(voteKey)) {
-        toast({ title: "Already Voted", description: "You have already voted on this outcome.", variant: "default" });
+        toast({ title: "Already Voted", description: "Your vote is already recorded for this outcome.", variant: "default" });
         return;
     }
 
-    // Note: This only updates local component state. For persistence, this would need to be saved.
     setOutcomes(prevOutcomes => prevOutcomes.map(o => {
         if (o.id === outcomeId) {
             return { ...o, votesFor: o.votesFor + (voteType === 'for' ? 1 : 0), votesAgainst: o.votesAgainst + (voteType === 'against' ? 1 : 0) };
         }
         return o;
     }));
+    const mockVoteId = `vote_${Date.now().toString(16)}`;
     localStorage.setItem(voteKey, voteType); 
-    toast({ title: "Vote Cast!", description: `You voted ${voteType} the outcome.` });
+    toast({ title: "Vote Recorded!", description: `Your vote has been tallied. (Mock Vote ID: ${mockVoteId})` });
   };
 
 
@@ -199,12 +203,11 @@ export default function PetitionDetailPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Petition Content */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-lg">
             {petition.imageUrl && (
               <div className="relative w-full h-64 md:h-96 rounded-t-lg overflow-hidden">
-                <Image src={petition.imageUrl} alt={petition.title} layout="fill" objectFit="cover" data-ai-hint={`${petition.category} event`} />
+                <Image src={petition.imageUrl} alt={petition.title} layout="fill" objectFit="cover" data-ai-hint={petition.category} />
               </div>
             )}
             <CardHeader>
@@ -212,12 +215,12 @@ export default function PetitionDetailPage() {
                 <PetitionStatusBadge status={petition.status} className="text-sm px-3 py-1.5" />
                 <div className="flex items-center text-sm text-muted-foreground gap-4">
                     <span className="flex items-center"><Tag className="h-4 w-4 mr-1.5" /> <span className="capitalize">{petition.category}</span></span>
-                    <span className="flex items-center"><Users className="h-4 w-4 mr-1.5" /> {petition.signatures.toLocaleString()} signatures</span>
+                    <span className="flex items-center"><Users className="h-4 w-4 mr-1.5" /> {petition.signatures.toLocaleString()} verifiable signatures</span>
                 </div>
               </div>
               <CardTitle className="text-3xl md:text-4xl font-bold text-foreground">{petition.title}</CardTitle>
               <div className="text-sm text-muted-foreground pt-1">
-                By <span className="font-medium text-primary">{petition.creatorName}</span> &bull; Created {formatDistanceToNow(new Date(petition.createdAt), { addSuffix: true })}
+                Proposed by <span className="font-medium text-primary">{petition.creatorName}</span> &bull; Recorded {formatDistanceToNow(new Date(petition.createdAt), { addSuffix: true })}
               </div>
             </CardHeader>
             <CardContent>
@@ -230,24 +233,29 @@ export default function PetitionDetailPage() {
                 onClick={handleSignPetition} 
                 disabled={isSigning || petition.status !== 'Live' || hasSigned}
               >
-                {isSigning ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PenLine className="mr-2 h-5 w-5" />}
-                {hasSigned ? "You've Signed" : (petition.status !== 'Live' ? `Cannot Sign (${petition.status})` : "Sign with Wallet")}
+                {isSigning ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileSignature className="mr-2 h-5 w-5" />}
+                {hasSigned ? "Signature Recorded" : (petition.status !== 'Live' ? `Cannot Sign (Ledger Status: ${petition.status})` : "Sign & Record on Ledger (Simulated)")}
               </Button>
               {isCreator && (
-                <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => alert("Edit functionality not implemented.")}>
-                  <Edit className="mr-2 h-5 w-5" /> Edit Petition
+                <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => alert("Edit functionality for immutable records requires a proposal process (not implemented).")}>
+                  <Edit className="mr-2 h-5 w-5" /> Edit Proposal (Simulated)
                 </Button>
               )}
             </CardFooter>
+            {hasSigned && mockTxId && (
+                <div className="px-6 pb-4 text-xs text-muted-foreground flex items-center">
+                    <Hash className="h-3 w-3 mr-1.5" /> Mock Transaction ID: {mockTxId}
+                </div>
+            )}
           </Card>
 
           { (petition.status === 'Voting' || petition.status === 'Live' || outcomes.length > 0) && (
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle>Proposed Outcomes & Community Voting</CardTitle>
+                    <CardTitle>Proposed Outcomes & Community Governance</CardTitle>
                     <CardDescription>
-                        {petition.status === 'Voting' ? "Vote on the proposed outcomes to decide the next steps." : 
-                         petition.status === 'Live' ? "Outcomes can be proposed. Voting will begin once the petition status changes to 'Voting'." :
+                        {petition.status === 'Voting' ? "Vote on proposed outcomes to decide the next steps. Votes are tallied transparently (simulated)." : 
+                         petition.status === 'Live' ? "Outcomes can be proposed for the ledger. Voting will begin once the petition status changes to 'Voting'." :
                          "Review proposed outcomes for this petition."}
                     </CardDescription>
                 </CardHeader>
@@ -266,16 +274,16 @@ export default function PetitionDetailPage() {
                                             <ThumbsDown className="h-4 w-4 mr-1.5 text-red-500" /> Against ({outcome.votesAgainst})
                                         </Button>
                                     </div>
-                                    {isCreator && user?.id === outcome.proposedByUserId && petition.status !== 'Voting' && ( // Only allow delete if not in Voting status
+                                    {isCreator && user?.id === outcome.proposedByUserId && petition.status !== 'Voting' && (
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="destructive" size="icon" className="h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>Delete Outcome?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogHeader><AlertDialogTitle>Retract Outcome Proposal?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone from the local simulation.</AlertDialogDescription></AlertDialogHeader>
                                                 <AlertDialogFooter>
                                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => alert('Delete outcome not implemented')}>Delete</AlertDialogAction>
+                                                    <AlertDialogAction onClick={() => alert('Retract outcome not implemented')}>Retract</AlertDialogAction>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
@@ -284,51 +292,49 @@ export default function PetitionDetailPage() {
                             </CardContent>
                         </Card>
                     ))}
-                    {outcomes.length === 0 && <p className="text-muted-foreground">No outcomes proposed yet.</p>}
+                    {outcomes.length === 0 && <p className="text-muted-foreground">No outcomes proposed for the ledger yet.</p>}
                 </CardContent>
-                { (petition.status === 'Live' || petition.status === 'Voting') && ( // Allow proposing if Live or Voting (creator or any authenticated user can propose)
+                { (petition.status === 'Live' || petition.status === 'Voting') && (
                     <CardFooter className="border-t pt-6">
                         <form onSubmit={handleProposeOutcome} className="w-full space-y-3">
-                            <Label htmlFor="new-outcome" className="font-semibold">Propose a New Outcome</Label>
+                            <Label htmlFor="new-outcome" className="font-semibold">Propose a New Outcome to the Ledger</Label>
                             <Textarea 
                                 id="new-outcome"
-                                placeholder="Describe the specific action or result you propose..."
+                                placeholder="Describe your proposed outcome for the ledger..."
                                 value={newOutcomeDescription}
                                 onChange={(e) => setNewOutcomeDescription(e.target.value)}
                                 rows={3}
-                                disabled={!isAuthenticated} // Disable if not logged in
+                                disabled={!isAuthenticated}
                             />
                             <Button type="submit" disabled={isProposing || !isAuthenticated} className="w-full sm:w-auto">
                                 {isProposing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                {isAuthenticated ? "Propose Outcome" : "Login to Propose"}
+                                {isAuthenticated ? "Propose to Ledger (Simulated)" : "Login to Propose"}
                             </Button>
                         </form>
                     </CardFooter>
                 )}
             </Card>
           )}
-
         </div>
 
-        {/* Sidebar: Analytics & Creator Tools */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="shadow-md">
             <CardHeader>
-              <CardTitle className="flex items-center"><BarChartBig className="mr-2 h-5 w-5 text-primary" /> Petition Analytics</CardTitle>
+              <CardTitle className="flex items-center"><BarChartBig className="mr-2 h-5 w-5 text-primary" /> Ledger Analytics (Simulated)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 text-sm">
-                <p><strong>Total Signatures:</strong> {petition.signatures.toLocaleString()}</p>
-                <p><strong>Signatures (Last Hour):</strong> {petition.signaturesLastHour?.toLocaleString() || 'N/A'}</p>
+                <p><strong>Total Verifiable Signatures:</strong> {petition.signatures.toLocaleString()}</p>
+                <p><strong>Signatures (Last Hour - Mock):</strong> {petition.signaturesLastHour?.toLocaleString() || 'N/A'}</p>
                 <p><strong>Category:</strong> <span className="capitalize">{petition.category}</span></p>
-                <p><strong>Status:</strong> <PetitionStatusBadge status={petition.status} /></p>
-                <p><strong>Created:</strong> {format(new Date(petition.createdAt), "MMMM d, yyyy")}</p>
-                <p><strong>Last Updated:</strong> {format(new Date(petition.updatedAt), "MMMM d, yyyy")}</p>
+                <p><strong>Ledger Status:</strong> <PetitionStatusBadge status={petition.status} /></p>
+                <p><strong>Recorded On:</strong> {format(new Date(petition.createdAt), "MMMM d, yyyy, HH:mm")}</p>
+                <p><strong>Last Update:</strong> {format(new Date(petition.updatedAt), "MMMM d, yyyy, HH:mm")}</p>
               </div>
               {chartData.length > 0 && (
                 <>
                   <Separator className="my-4" />
-                  <h4 className="font-semibold mb-2 text-muted-foreground">Signatures per Hour</h4>
+                  <h4 className="font-semibold mb-2 text-muted-foreground">Signatures Activity (Mock)</h4>
                   <ChartContainer config={chartConfig} className="aspect-video h-[200px] w-full">
                     <BarChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
                       <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -341,7 +347,7 @@ export default function PetitionDetailPage() {
                 </>
               )}
                <Separator className="my-4" />
-               <h4 className="font-semibold mb-2 text-muted-foreground">Geographic Breakdown</h4>
+               <h4 className="font-semibold mb-2 text-muted-foreground">Geographic Distribution (Mock)</h4>
                {petition.geoBreakdown && Object.keys(petition.geoBreakdown).length > 0 ? (
                 <ul className="text-sm space-y-1">
                     {Object.entries(petition.geoBreakdown).map(([loc, count]) => (
@@ -354,29 +360,28 @@ export default function PetitionDetailPage() {
 
           {isCreator && (
             <Card className="shadow-md">
-              <CardHeader><CardTitle>Creator Tools</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Creator Tools (Simulated)</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start" onClick={() => alert("Manage Status functionality not implemented.")}>
-                    <Edit className="mr-2 h-4 w-4" /> Manage Status
+                <Button variant="outline" className="w-full justify-start" onClick={() => alert("Managing ledger status requires consensus (not implemented).")}>
+                    <Edit className="mr-2 h-4 w-4" /> Manage Ledger Status
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" className="w-full justify-start">
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Petition
+                      <Trash2 className="mr-2 h-4 w-4" /> Burn Petition (Simulated)
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogTitle>Confirm Petition Burn (Simulated)?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the petition
-                        and all related data from your browser's local storage.
+                        This action is irreversible on a real ledger. This will permanently delete the petition
+                        and all related data from your browser's local storage for this simulation.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={() => {
-                          // Delete from localStorage
                           const storedPetitionsJSON = localStorage.getItem(PETITIONS_STORAGE_KEY);
                           if (storedPetitionsJSON) {
                             try {
@@ -384,14 +389,14 @@ export default function PetitionDetailPage() {
                               allPetitions = allPetitions.filter(p => p.id !== petition.id);
                               localStorage.setItem(PETITIONS_STORAGE_KEY, JSON.stringify(allPetitions));
                             } catch (e) {
-                              console.error("Error deleting petition from localStorage", e);
+                              console.error("Error burning petition from localStorage", e);
                             }
                           }
-                          toast({ title: "Petition Deleted", description: "The petition has been removed from local storage."});
+                          toast({ title: "Petition Burned (Simulated)", description: "The petition has been removed from local storage."});
                           router.push('/dashboard');
                         }}
                       >
-                        Yes, delete petition
+                        Yes, burn petition
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -404,5 +409,3 @@ export default function PetitionDetailPage() {
     </div>
   );
 }
-
-    

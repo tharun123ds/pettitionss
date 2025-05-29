@@ -1,3 +1,4 @@
+
 import type { Petition } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ export function PetitionCard({ petition }: PetitionCardProps) {
             fill
             style={{ objectFit: 'cover' }}
             className="rounded-t-lg"
-            data-ai-hint={`${petition.category} illustration`}
+            data-ai-hint={petition.category}
             />
          </div>
       )}
@@ -47,12 +48,12 @@ export function PetitionCard({ petition }: PetitionCardProps) {
         <div className="text-xs text-muted-foreground space-y-1">
             <div className="flex items-center">
                 <Users className="h-3.5 w-3.5 mr-1.5" />
-                <span>{petition.signatures.toLocaleString()} signatures</span>
+                <span>{petition.signatures.toLocaleString()} verifiable signatures</span>
             </div>
             <div className="flex items-center">
                 <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
                 <span>
-                    Created {formatDistanceToNow(new Date(petition.createdAt), { addSuffix: true })}
+                    Recorded {formatDistanceToNow(new Date(petition.createdAt), { addSuffix: true })}
                 </span>
             </div>
              <div className="flex items-center pt-1">
@@ -62,7 +63,7 @@ export function PetitionCard({ petition }: PetitionCardProps) {
       </CardContent>
       <CardFooter>
         <Button asChild variant="outline" className="w-full">
-          <Link href={`/petitions/${petition.id}`}>View Details</Link>
+          <Link href={`/petitions/${petition.id}`}>View on Ledger (Simulated)</Link>
         </Button>
       </CardFooter>
     </Card>

@@ -15,7 +15,7 @@ import { useAuth } from '@/providers/auth-provider';
 import { useRouter } from 'next/navigation';
 import type { Petition, PetitionCategory, PetitionStatus } from '@/lib/types';
 import { categorizePetition, type CategorizePetitionOutput } from '@/ai/flows/categorize-petition';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2, Info, FileSignature } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 
@@ -103,7 +103,7 @@ export default function NewPetitionPage() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       signatures: 0,
-      imageUrl: `https://placehold.co/600x400.png?text=${encodeURIComponent(data.title.substring(0,15))}`
+      imageUrl: `https://placehold.co/600x400.png` // Standardized placeholder, hint added in card/detail
     };
 
     try {
@@ -112,20 +112,20 @@ export default function NewPetitionPage() {
       if (existingPetitionsJSON) {
         try {
           allPetitions = JSON.parse(existingPetitionsJSON);
-          if (!Array.isArray(allPetitions)) { // Basic validation
+          if (!Array.isArray(allPetitions)) { 
             allPetitions = [];
           }
         } catch (e) {
           console.error("Failed to parse petitions from localStorage, resetting.", e);
-          allPetitions = []; // Reset if parsing fails or data is not an array
+          allPetitions = []; 
         }
       }
       allPetitions.push(newPetition);
       localStorage.setItem(PETITIONS_STORAGE_KEY, JSON.stringify(allPetitions));
 
       toast({
-        title: "Petition Created!",
-        description: `Your petition "${newPetition.title}" has been saved locally.`,
+        title: "Petition Proposal Submitted!",
+        description: `Your petition "${newPetition.title}" has been recorded as a draft. It's ready for the community ledger once finalized.`,
       });
       router.push('/dashboard');
     } catch (error) {
@@ -145,7 +145,7 @@ export default function NewPetitionPage() {
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="text-3xl">Create a New Petition</CardTitle>
-          <CardDescription>Share your cause and gather support from the community.</CardDescription>
+          <CardDescription>Launch your proposal onto our decentralized platform. Share your cause and gather verifiable support.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
@@ -205,8 +205,8 @@ export default function NewPetitionPage() {
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isSubmitting || isCategorizing}>
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Create Petition
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" />}
+              Submit Proposal to Ledger
             </Button>
           </CardFooter>
         </form>
@@ -214,5 +214,3 @@ export default function NewPetitionPage() {
     </div>
   );
 }
-
-    

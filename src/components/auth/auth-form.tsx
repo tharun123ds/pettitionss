@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -47,43 +48,42 @@ export function AuthForm({ mode }: AuthFormProps) {
     setError(null);
     try {
       if (mode === 'login') {
-        const { email } = data as LoginFormInputs;
-        // In a real app, you'd verify password. Here, we just use email and a dummy name.
+        const { email, password } = data as LoginFormInputs;
+        // Password verification is simplified for this demo
         login(email, email.split('@')[0] || "User"); 
       } else {
-        const { email, name } = data as RegisterFormInputs;
+        const { email, name, password } = data as RegisterFormInputs;
+         // Password usage is simplified for this demo
         authRegister(email, name);
       }
-      // AuthProvider handles navigation on success
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
       setIsLoading(false);
     }
-    // setIsLoading(false) will be handled by navigation or error display
   };
 
   return (
     <Card className="w-full shadow-xl">
       <CardHeader>
-        <CardTitle className="text-2xl">{mode === 'login' ? 'Welcome Back!' : 'Create an Account'}</CardTitle>
+        <CardTitle className="text-2xl">{mode === 'login' ? 'Access Your Account' : 'Create Your Secure Account'}</CardTitle>
         <CardDescription>
-          {mode === 'login' ? "Sign in to continue to DecentralizeIt." : "Join us to make your voice heard."}
+          {mode === 'login' ? "Access your decentralized identity and continue to DecentralizeIt." : "Join our decentralized platform to make your voice heard. Your identity is key (simulated)."}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
           {mode === 'register' && (
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Full Name / Alias</Label>
               <div className="relative">
                 <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input id="name" type="text" placeholder="John Doe" {...register('name' as any)} className="pl-10" />
+                <Input id="name" type="text" placeholder="Your Public Name" {...register('name' as any)} className="pl-10" />
               </div>
               {errors.name && <p className="text-sm text-destructive">{(errors.name as any).message}</p>}
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Email Address</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input id="email" type="email" placeholder="you@example.com" {...register('email')} className="pl-10" />
@@ -91,7 +91,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Password (Keep it Secret!)</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input id="password" type="password" placeholder="••••••••" {...register('password')} className="pl-10" />
@@ -103,13 +103,13 @@ export function AuthForm({ mode }: AuthFormProps) {
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === 'login' ? 'Login' : 'Create Account'}
+            {mode === 'login' ? 'Unlock Account' : 'Register Secure Account'}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
-            {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+            {mode === 'login' ? "Don't have an account? " : "Already have a secure account? "}
             <Button variant="link" asChild className="p-0 h-auto">
               <Link href={mode === 'login' ? '/auth/register' : '/auth/login'}>
-                {mode === 'login' ? 'Sign up' : 'Log in'}
+                {mode === 'login' ? 'Register' : 'Login'}
               </Link>
             </Button>
           </p>
